@@ -495,9 +495,6 @@ int main(int argc, const char** argv){
 	int rotate = 0; // 0,1,2,3 only
 	int camidx=-1;	//Camera Index (If only one camera available, use 0)
 
-	#ifdef _OPENMP
-	#pragma omp parallel for
-	#endif
 	for (int argi = 1;argi<argc;argi++){
 		if (argv[argi][0]=='-')
 			continue;

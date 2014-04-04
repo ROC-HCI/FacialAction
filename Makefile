@@ -25,7 +25,7 @@ SOURCE_FILES=\
 	src/lib/Tracker.cc
 
 # Source files which contain a int main(..) function
-SOURCE_FILES_WITH_MAIN=src/exe/face_tracker.cc
+SOURCE_FILES_WITH_MAIN=src/exe/faceaction.cc
 
 # End Configuration
 SOURCE_OBJECTS=$(patsubst %.cc,%.o,$(SOURCE_FILES))
