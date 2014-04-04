@@ -280,13 +280,14 @@ void Draw(cv::Mat &image,cv::Mat &shape,cv::Mat &con,cv::Mat &tri,cv::Mat &visi)
 //=============================================================================
 int parse_cmd(int argc, const char** argv,
 	char* ftFile,char* conFile,char* triFile,
-	bool &fcheck,double &scale,int &fpd)
+	bool &fcheck,double &scale,int &fpd, bool &show)
 {
 	int i; fcheck = false; scale = 1; fpd = -1;
 	for(i = 1; i < argc; i++){
 		if((std::strcmp(argv[i],"-?") == 0) ||
 			(std::strcmp(argv[i],"--help") == 0)){
-				std::cout << "track_face:- Written by Jason Saragih 2010" << std::endl
+				std::cout << "track_face:- Written by Jason Saragih 2010." << std::endl <<
+						"Added feature extraction routines by Md. Iftekhar Tanveer (go2chayan@gmail.com) 2014" << std::endl
 					<< "Performs automatic face tracking" << std::endl << std::endl
 					<< "#" << std::endl 
 					<< "# usage: ./face_tracker [options]" << std::endl
@@ -300,7 +301,9 @@ int parse_cmd(int argc, const char** argv,
 					<< std::endl
 					<< "-s <double> -> Image scaling (default: 1)" << std::endl
 					<< "-d <int>    -> Frames/detections (default: -1)" << std::endl
-					<< "--check     -> Check for failure" << std::endl;
+					<< "--check     -> Check for failure" << std::endl
+					<< "--noshow    -> Hides the video frames and other feedbacks" <<std::endl
+					<< "<Filename> -> input video file" << std::endl;
 				return -1;
 		}
 	}
@@ -308,6 +311,10 @@ int parse_cmd(int argc, const char** argv,
 		if(std::strcmp(argv[i],"--check") == 0){fcheck = true; break;}
 	}
 	if(i >= argc)fcheck = false;
+	for(i = 1; i < argc; i++){
+		if(std::strcmp(argv[i],"--noshow") == 0){show = false; break;}
+	}
+	if(i >= argc)show = true;
 	for(i = 1; i < argc; i++){
 		if(std::strcmp(argv[i],"-s") == 0){
 			if(argc > i+1)scale = std::atof(argv[i+1]); else scale = 1;
@@ -369,7 +376,6 @@ void FilterFeatures(double FeatureLst[],cv::Mat &FilteredContent,cv::Mat &Differ
 		static cv::Mat DatBufferforFilter = cv::Mat::ones(windowSize,ArrLen,CV_64FC1);
 		static cv::Mat Kernel = getFilterKernel(windowSize,ArrLen);
 		static cv::Mat Kernel_Diff = getFilterKernel(windowSize,ArrLen,false);
-		static int SkipEvent[12] = {0};
 
 		// Slides the window vertically for Filtering
 		DatBufferforFilter.rowRange(1,windowSize).copyTo(tempBuff);
@@ -478,20 +484,23 @@ void plotFeatureswithSlidingWindow(double FeatureLst[],int ArrLen,double eventFe
 }
 
 //=============================================================================
-int main(int argc, const char** argv)
-{
+int main(int argc, const char** argv){
 	//parse command line arguments
 	char ftFile[256],conFile[256],triFile[256];
-	bool fcheck = false; int fpd = -1; bool show = true;
-	double Size=1.0;int lastResetCount = 0;
-	if(parse_cmd(argc,argv,ftFile,conFile,triFile,fcheck,Size,fpd)<0)return 0;
+	bool fcheck = false; int fpd = -1; bool show = false;
+	double Size=1.0;int lastResetCount = 0;	std::ofstream ofstm;
+	if(parse_cmd(argc,argv,ftFile,conFile,triFile,fcheck,Size,fpd,show)<0)return 0;
 
 	// #### TODO: Include these variables into command line parser
 	int rotate = 0; // 0,1,2,3 only
-	Size = 1.; // Multiplication factor for getting the image to be processes
 	int camidx=-1;	//Camera Index (If only one camera available, use 0)
-	std::ofstream ofstm;
+
+	#ifdef _OPENMP
+	#pragma omp parallel for
+	#endif
 	for (int argi = 1;argi<argc;argi++){
+		if (argv[argi][0]=='-')
+			continue;
 		std::string filename=argv[argi];
 		std::cout<<filename<<std::endl;
 		std::string outFileName = std::string(argv[argi]).append(".csv");
@@ -499,7 +508,6 @@ int main(int argc, const char** argv)
 
 
 		// ############## Initialization #####################
-
 			cv::Mat filteredFeature;
 			cv::Mat eventFeature;
 
@@ -534,9 +542,11 @@ int main(int argc, const char** argv)
 			}
 
 			int64 t1,t0 = cvGetTickCount(); unsigned long int fnum=0;
-			std::cout << "Hot keys: "        << std::endl
-				<< "\t ESC or x - quit"     << std::endl
-				<< "\t d   - Redetect" << std::endl;
+			if(show){
+				std::cout << "Hot keys: "        << std::endl
+					<< "\t ESC or x - quit"     << std::endl
+					<< "\t d   - Redetect" << std::endl;
+			}
 
 			//loop until quit (i.e user presses ESC)
 			bool failed = true;
@@ -602,16 +612,14 @@ int main(int argc, const char** argv)
 						// Debug. TODO: Remove the following:
 						// Smooth out the features and plot in a separate window
 						FilterFeatures(FeaturesInArray,filteredFeature,eventFeature,14);
-						plotFeatureswithSlidingWindow(FeaturesInArray,12,
-							(double*)eventFeature.data,fnum);
+						if(show)plotFeatureswithSlidingWindow(FeaturesInArray,12,(double*)eventFeature.data,fnum);
 						double errorTracker = std::sqrt(eventFeature.at<double>(0)*eventFeature.at<double>(0)
 								+eventFeature.at<double>(1)*eventFeature.at<double>(1)
 								+eventFeature.at<double>(2)*eventFeature.at<double>(2)
 								+eventFeature.at<double>(12)*eventFeature.at<double>(12)
 								+eventFeature.at<double>(13)*eventFeature.at<double>(13));
-						std::cout<<errorTracker<<std::endl;
 						if(errorTracker>10 && (fnum - lastResetCount) > 15){
-							std::cout<<"Unlikely movement detected. Resetting Tracker."<<std::endl;
+							if(show)std::cout<<"Unlikely movement detected. Resetting Tracker."<<std::endl;
 							failed = true;
 							model.FrameReset();
 							lastResetCount = fnum;
@@ -629,7 +637,7 @@ int main(int argc, const char** argv)
 						}
 						ofstm<<"\n";
 
-						Draw(frame,model._shape,con,tri,model._clm._visi[idx]);
+						if(show)Draw(frame,model._shape,con,tri,model._clm._visi[idx]);
 					}else{
 						if(show){cv::Mat R(frame,cvRect(0,0,150,50)); R = cv::Scalar(0,0,255);}
 						failed = true;
@@ -659,14 +667,14 @@ int main(int argc, const char** argv)
 							CV_FONT_HERSHEY_SIMPLEX,0.5,CV_RGB(255,255,255),3);
 						cv::putText(frame,frameNo,cv::Point(frame.cols - 100,20),
 							CV_FONT_HERSHEY_SIMPLEX,0.5,CV_RGB(0,0,0),2);
+						// Show output picture
+						cv::imshow("Face Tracker",frame);
+						// Wait for user input
+						int c = cvWaitKey(5);
+						if(c == 27 || char(c) == 'x')break;
+						else if(char(c) == 'd')model.FrameReset();
+						else if (char(c) == 'X'){ofstm.close();exit(0);}
 					}
-					// Show output picture
-					cv::imshow("Face Tracker",frame);
-					// Wait for user input
-					int c = cvWaitKey(5);
-					if(c == 27 || char(c) == 'x')break;
-					else if(char(c) == 'd')model.FrameReset();
-					else if (char(c) == 'X'){ofstm.close();exit(0);}
 			}
 			ofstm.close();
 		}
