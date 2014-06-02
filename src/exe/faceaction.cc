@@ -11,6 +11,7 @@ file.
 */
 
 #include <iostream>
+#include <stdlib.h>
 #include <fstream>
 #include <vector>
 #include <fstream>
@@ -69,7 +70,7 @@ double DistFromLine(double x1, double y1, double z1,
 % Height of inner lip boundary
 % Mouth corner angle
 % Distance between lip corners */
-void FeatureList (cv::Mat &TrackedShape, cv::Mat &RefShape, cv::Mat &globalPar, double * FeatureLst){
+void FeatureList (cv::Mat &TrackedShape, cv::Mat &RefShape, double * FeatureLst){
 	// Annotation metadata can be found here
 	// https://lh4.googleusercontent.com/-H5d99m0kZmY/Tq3oWDN-WDI/AAAAAAAADGg/nb9__qoesnU/s512/Face-Annotations.png
 	// Remember: The point number here = point number in picture - 1
@@ -280,7 +281,7 @@ void Draw(cv::Mat &image,cv::Mat &shape,cv::Mat &con,cv::Mat &tri,cv::Mat &visi)
 //=============================================================================
 int parse_cmd(int argc, const char** argv,
 	char* ftFile,char* conFile,char* triFile,
-	bool &fcheck,double &scale,int &fpd, bool &show)
+	bool &fcheck,double &scale,int &fpd, bool &show, int &jobID)
 {
 	int i; fcheck = false; scale = 1; fpd = -1;
 	for(i = 1; i < argc; i++){
@@ -300,10 +301,11 @@ int parse_cmd(int argc, const char** argv,
 					<< "-t <string> -> Triangulation (default: ./model/face.tri)"
 					<< std::endl
 					<< "-s <double> -> Image scaling (default: 1)" << std::endl
+					<< "-job <index/int> -> specify the index of the input video file to work with" << std::endl
 					<< "-d <int>    -> Frames/detections (default: -1)" << std::endl
 					<< "--check     -> Check for failure" << std::endl
 					<< "--noshow    -> Hides the video frames and other feedbacks" <<std::endl
-					<< "<Filename> -> input video file" << std::endl;
+					<< "-input <Filename> <Filename> ... <Filename> -> input video files (this must be the last argument)" << std::endl;
 				return -1;
 		}
 	}
@@ -329,6 +331,13 @@ int parse_cmd(int argc, const char** argv,
 		}
 	}
 	if(i >= argc)fpd = -1;
+	for(i = 1; i < argc; i++){
+			if(std::strcmp(argv[i],"-job") == 0){
+				if(argc > i+1)jobID = std::atoi(argv[i+1]); else jobID = -1;
+				break;
+			}
+		}
+		if(i >= argc)jobID = -1;
 	for(i = 1; i < argc; i++){
 		if(std::strcmp(argv[i],"-m") == 0){
 			if(argc > i+1)std::strcpy(ftFile,argv[i+1]);
@@ -369,7 +378,7 @@ cv::Mat getFilterKernel(int windowSize,int ArrLen,bool forfilter = true){
 }
 
 void FilterFeatures(double FeatureLst[],cv::Mat &FilteredContent,cv::Mat &Differentiated,
-	int ArrLen,int windowSize = 6,float thresHold = 0.05){
+	int ArrLen,int windowSize = 6){
 
 		cv::Mat tempBuff,dottedData;
 
@@ -409,7 +418,7 @@ void FilterFeatures(double FeatureLst[],cv::Mat &FilteredContent,cv::Mat &Differ
 }
 
 void plotFeatureswithSlidingWindow(double FeatureLst[],int ArrLen,double eventFeature[],
-	unsigned long int fnum, int rows = 480,int cols = 640,
+	int rows = 480,int cols = 640,
 	int HorzScale = 4,double vertScale = 75.0){
 
 		int BuffLen = cols/HorzScale;
@@ -488,22 +497,45 @@ int main(int argc, const char** argv){
 	//parse command line arguments
 	char ftFile[256],conFile[256],triFile[256];
 	bool fcheck = false; int fpd = -1; bool show = false;
+	int jobID = -1; bool inputFiles = false;
 	double Size=1.0;int lastResetCount = 0;	std::ofstream ofstm;
-	if(parse_cmd(argc,argv,ftFile,conFile,triFile,fcheck,Size,fpd,show)<0)return 0;
-
+	if(parse_cmd(argc,argv,ftFile,conFile,triFile,fcheck,Size,fpd,show,jobID)<0)return 0;
 	// #### TODO: Include these variables into command line parser
 	int rotate = 0; // 0,1,2,3 only
 	int camidx=-1;	//Camera Index (If only one camera available, use 0)
 
+	if (jobID ==-2)
+		jobID = std::atoi(std::getenv("SLURM_PROCID"));
+
+	std::vector<std::string> fileList;
 	for (int argi = 1;argi<argc;argi++){
-		if (argv[argi][0]=='-')
-			continue;
-		std::string filename=argv[argi];
+		if(!inputFiles){
+			if (strcmp(argv[argi],"-input")!=0){
+				continue;
+			}else{
+				inputFiles = true;
+				continue;
+			}
+		}
+		fileList.push_back(argv[argi]);
+	}
+	for (int idx = 0; idx<fileList.size();idx++){
+		std::string filename;
+		std::string outFileName;
+
+		if (jobID<0){
+			filename=fileList[idx];
+			outFileName = std::string(fileList[idx]).append(".csv");
+		}else{
+			filename=fileList[jobID];
+			outFileName = std::string(fileList[jobID]).append(".csv");
+		}
+
+
 		std::cout<<filename<<std::endl;
-		std::string outFileName = std::string(argv[argi]).append(".csv");
 		std::cout<<outFileName<<std::endl;
 
-
+		std::cout<<"startTime = "<<cv::getTickCount()/float(cv::getTickFrequency())<<std::endl;
 		// ############## Initialization #####################
 			cv::Mat filteredFeature;
 			cv::Mat eventFeature;
@@ -541,7 +573,8 @@ int main(int argc, const char** argv){
 			int64 t1,t0 = cvGetTickCount(); unsigned long int fnum=0;
 			if(show){
 				std::cout << "Hot keys: "        << std::endl
-					<< "\t ESC or x - quit"     << std::endl
+					<< "\t ESC or x - skip video"     << std::endl
+					<< "\t X - quit"     << std::endl
 					<< "\t d   - Redetect" << std::endl;
 			}
 
@@ -559,6 +592,7 @@ int main(int argc, const char** argv){
 			ofstm<<"\n";
 			// ############## End of Initialization ################
 			double FeaturesInArray[14] ={0.0};
+			double sumFPS = 0;
 			while(1){
 					//grab image
 					cap>>frame;
@@ -590,7 +624,7 @@ int main(int argc, const char** argv){
 
 						// Extract all the features
 						trackedShape3d = model._clm._pdm._M + model._clm._pdm._V*model._clm._plocal;
-						FeatureList(trackedShape3d,refShape3d,model._clm._pglobl,FeatureLst);
+						FeatureList(trackedShape3d,refShape3d,FeatureLst);
 						FeaturesInArray[0] = model._clm._pglobl.at<double>(1); // pitch
 						FeaturesInArray[1] = model._clm._pglobl.at<double>(2); // yaw
 						FeaturesInArray[2] = model._clm._pglobl.at<double>(3); // roll
@@ -609,7 +643,7 @@ int main(int argc, const char** argv){
 						// Debug. TODO: Remove the following:
 						// Smooth out the features and plot in a separate window
 						FilterFeatures(FeaturesInArray,filteredFeature,eventFeature,14);
-						if(show)plotFeatureswithSlidingWindow(FeaturesInArray,12,(double*)eventFeature.data,fnum);
+						if(show)plotFeatureswithSlidingWindow(FeaturesInArray,12,(double*)eventFeature.data);
 						double errorTracker = std::sqrt(eventFeature.at<double>(0)*eventFeature.at<double>(0)
 								+eventFeature.at<double>(1)*eventFeature.at<double>(1)
 								+eventFeature.at<double>(2)*eventFeature.at<double>(2)
@@ -650,6 +684,7 @@ int main(int argc, const char** argv){
 						fps = 10.0/((double(t1-t0)/cv::getTickFrequency()));
 						t0 = t1;
 					}
+					sumFPS = sumFPS + fps;
 					fnum += 1;
 					//draw framerate on display image
 					char frameNo[50] = {" "};
@@ -659,7 +694,7 @@ int main(int argc, const char** argv){
 							CV_FONT_HERSHEY_SIMPLEX,0.5,CV_RGB(255,255,255),2);
 						cv::putText(frame,text,cv::Point(10,20),
 							CV_FONT_HERSHEY_SIMPLEX,0.5,CV_RGB(0,0,0),1);
-						sprintf(frameNo,"Frame:%d",fnum);
+						sprintf(frameNo,"Frame:%d",(int)fnum);
 						cv::putText(frame,frameNo,cv::Point(frame.cols - 100,20),
 							CV_FONT_HERSHEY_SIMPLEX,0.5,CV_RGB(255,255,255),3);
 						cv::putText(frame,frameNo,cv::Point(frame.cols - 100,20),
@@ -674,6 +709,14 @@ int main(int argc, const char** argv){
 					}
 			}
 			ofstm.close();
+			std::cout<<"endTime = "<<cv::getTickCount()/float(cv::getTickFrequency())<<std::endl;
+			std::cout<<"FramesProcessed = "<<fnum<<std::endl;
+			if (fnum!=0)
+				std::cout<<"AvgFPS = "<<sumFPS/fnum<<std::endl;
+			else
+				std::cout<<"AvgFPS = 0"<<std::endl;
+			if (jobID>=0)
+				break;
 		}
 		exit(0);
 	}
