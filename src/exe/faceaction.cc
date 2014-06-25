@@ -281,7 +281,7 @@ void Draw(cv::Mat &image,cv::Mat &shape,cv::Mat &con,cv::Mat &tri,cv::Mat &visi)
 //=============================================================================
 int parse_cmd(int argc, const char** argv,
 	char* ftFile,char* conFile,char* triFile,
-	bool &fcheck,double &scale,int &fpd, bool &show, int &jobID)
+	bool &fcheck,double &scale,int &fpd, bool &show, int &jobID, int &camidx)
 {
 	int i; fcheck = false; scale = 1; fpd = -1;
 	for(i = 1; i < argc; i++){
@@ -305,6 +305,7 @@ int parse_cmd(int argc, const char** argv,
 					<< "-d <int>    -> Frames/detections (default: -1)" << std::endl
 					<< "--check     -> Check for failure" << std::endl
 					<< "--noshow    -> Hides the video frames and other feedbacks" <<std::endl
+					<< "-# <Camera_ID_Number> -> If only one camera, use 0. If want process from file, use -1 (default 0)" << std::endl
 					<< "-input <Filename> <Filename> ... <Filename> -> input video files (this must be the last argument)" << std::endl;
 				return -1;
 		}
@@ -332,6 +333,13 @@ int parse_cmd(int argc, const char** argv,
 	}
 	if(i >= argc)fpd = -1;
 	for(i = 1; i < argc; i++){
+		if(std::strcmp(argv[i],"-#") == 0){
+			if(argc > i+1)camidx = std::atoi(argv[i+1]); else camidx = 0;
+			break;
+		}
+	}
+	if(i >= argc)camidx = 0;
+	for(i = 1; i < argc; i++){
 			if(std::strcmp(argv[i],"-job") == 0){
 				if(argc > i+1)jobID = std::atoi(argv[i+1]); else jobID = -1;
 				break;
@@ -341,27 +349,27 @@ int parse_cmd(int argc, const char** argv,
 	for(i = 1; i < argc; i++){
 		if(std::strcmp(argv[i],"-m") == 0){
 			if(argc > i+1)std::strcpy(ftFile,argv[i+1]);
-			else strcpy(ftFile,"./model/face2.tracker");
+			else strcpy(ftFile,"../model/face2.tracker");
 			break;
 		}
 	}
-	if(i >= argc)std::strcpy(ftFile,"./model/face2.tracker");
+	if(i >= argc)std::strcpy(ftFile,"../model/face2.tracker");
 	for(i = 1; i < argc; i++){
 		if(std::strcmp(argv[i],"-c") == 0){
 			if(argc > i+1)std::strcpy(conFile,argv[i+1]);
-			else strcpy(conFile,"./model/face.con");
+			else strcpy(conFile,"../model/face.con");
 			break;
 		}
 	}
-	if(i >= argc)std::strcpy(conFile,"./model/face.con");
+	if(i >= argc)std::strcpy(conFile,"../model/face.con");
 	for(i = 1; i < argc; i++){
 		if(std::strcmp(argv[i],"-t") == 0){
 			if(argc > i+1)std::strcpy(triFile,argv[i+1]);
-			else strcpy(triFile,"./model/face.tri");
+			else strcpy(triFile,"../model/face.tri");
 			break;
 		}
 	}
-	if(i >= argc)std::strcpy(triFile,"./model/face.tri");
+	if(i >= argc)std::strcpy(triFile,"../model/face.tri");
 	return 0;
 }
 
@@ -499,10 +507,10 @@ int main(int argc, const char** argv){
 	bool fcheck = false; int fpd = -1; bool show = false;
 	int jobID = -1; bool inputFiles = false;
 	double Size=1.0;int lastResetCount = 0;	std::ofstream ofstm;
-	if(parse_cmd(argc,argv,ftFile,conFile,triFile,fcheck,Size,fpd,show,jobID)<0)return 0;
+	int camidx=0;	//Camera Index (If only one camera available, use 0)
+	if(parse_cmd(argc,argv,ftFile,conFile,triFile,fcheck,Size,fpd,show,jobID,camidx)<0)return 0;
 	// #### TODO: Include these variables into command line parser
 	int rotate = 0; // 0,1,2,3 only
-	int camidx=-1;	//Camera Index (If only one camera available, use 0)
 
 	if (jobID ==-2)
 		jobID = std::atoi(std::getenv("SLURM_PROCID"));
@@ -519,21 +527,25 @@ int main(int argc, const char** argv){
 		}
 		fileList.push_back(argv[argi]);
 	}
+	if(camidx>=0)
+		fileList.push_back("");
 	for (int idx = 0; idx<fileList.size();idx++){
 		std::string filename;
 		std::string outFileName;
 
-		if (jobID<0){
-			filename=fileList[idx];
-			outFileName = std::string(fileList[idx]).append(".csv");
-		}else{
-			filename=fileList[jobID];
-			outFileName = std::string(fileList[jobID]).append(".csv");
+		if(camidx<0){
+			if (jobID<0){
+				filename=fileList[idx];
+				outFileName = std::string(fileList[idx]).append(".csv");
+			}else{
+				filename=fileList[jobID];
+				outFileName = std::string(fileList[jobID]).append(".csv");
+			}
+
+
+			std::cout<<filename<<std::endl;
+			std::cout<<outFileName<<std::endl;
 		}
-
-
-		std::cout<<filename<<std::endl;
-		std::cout<<outFileName<<std::endl;
 
 		std::cout<<"startTime = "<<cv::getTickCount()/float(cv::getTickFrequency())<<std::endl;
 		// ############## Initialization #####################

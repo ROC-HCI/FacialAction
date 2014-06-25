@@ -3,6 +3,16 @@
 bin/
 Debug/
 Release/
+msvc/Debug/
+msvc/Release/
+msvc/ipch/
+Temp/
 .settings/
 *.d
 *.o
+*.ilk
+*.sdf
+*.suo
+*.user
+*.props
+
