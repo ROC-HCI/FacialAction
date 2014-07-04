@@ -82,7 +82,7 @@ void Tracker::Read(ifstream &s,bool readType)
   _frame = -1; _clm._pdm.Identity(_clm._plocal,_clm._pglobl); return;
 }
 //===========================================================================
-int Tracker::Track(cv::Mat im,vector<int> &wSize, const int  fpd,
+int Tracker::Track(cv::Mat im,vector<int> &wSize, cv::Rect R1, const int  fpd,
 		   const int  nIter, const double clamp,const double fTol,
 		   const bool fcheck)
 { 
@@ -94,13 +94,18 @@ int Tracker::Track(cv::Mat im,vector<int> &wSize, const int  fpd,
       gray_.create(im.rows,im.cols,CV_8U);
     cv::cvtColor(im,gray_,CV_BGR2GRAY);
   }
-  bool gen,rsize=true; cv::Rect R;
-  // Initially, use the Haar face detector
+  bool gen,rsize=true; 
+  
+  cv::Rect R;
+  // Initially, use the Shore face detector
   // but once tracking started, use the template matching algorithm
   if((_frame < 0) || (fpd >= 0 && fpd < _frame)){
-    _frame = 0; R = _fdet.Detect(gray_); gen = true;
-  }else{R = this->ReDetect(gray_); gen = false;}
-  if((R.width == 0) || (R.height == 0)){_frame = -1; return -1;}
+    _frame = 0; R = R1; 
+	gen = true;
+  }else{R = this->ReDetect(gray_); 
+  gen = false;}
+
+ if((R.width == 0) || (R.height == 0)){_frame = -1; return -1;}
   _frame++;
   if(gen){
     this->InitShape(R,_shape);

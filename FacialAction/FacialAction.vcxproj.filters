@@ -1,0 +1,102 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="Source Files">
+      <UniqueIdentifier>{4FC737F1-C7A5-4376-A066-2A32D752A2FF}</UniqueIdentifier>
+      <Extensions>cpp;c;cc;cxx;def;odl;idl;hpj;bat;asm;asmx</Extensions>
+    </Filter>
+    <Filter Include="Header Files">
+      <UniqueIdentifier>{93995380-89BD-4b04-88EB-625FBE52EBFB}</UniqueIdentifier>
+      <Extensions>h;hpp;hxx;hm;inl;inc;xsd</Extensions>
+    </Filter>
+    <Filter Include="Resource Files">
+      <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
+      <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav;mfcribbon-ms</Extensions>
+    </Filter>
+    <Filter Include="Model">
+      <UniqueIdentifier>{46e3a8e5-0836-4f05-937f-c94249233b3b}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="ReadMe.txt" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="..\Model\Age_28x28_2009_09_17_131241.cpp">
+      <Filter>Model</Filter>
+    </ClCompile>
+    <ClCompile Include="..\Model\Angry_26x26_2008_10_21_152601.cpp">
+      <Filter>Model</Filter>
+    </ClCompile>
+    <ClCompile Include="..\Model\Face_24x24_2009_09_02_185611_48.cpp">
+      <Filter>Model</Filter>
+    </ClCompile>
+    <ClCompile Include="..\Model\FaceFront_24x24_2008_08_29_161712_7.cpp">
+      <Filter>Model</Filter>
+    </ClCompile>
+    <ClCompile Include="..\Model\FaceFrontId_36x44_2009_08_07_122105.cpp">
+      <Filter>Model</Filter>
+    </ClCompile>
+    <ClCompile Include="..\Model\FaceRotated_24x24_2008_10_15_180432_24.cpp">
+      <Filter>Model</Filter>
+    </ClCompile>
+    <ClCompile Include="..\Model\Gender_26x26_2008_09_04_174103.cpp">
+      <Filter>Model</Filter>
+    </ClCompile>
+    <ClCompile Include="..\Model\Happy_26x26_2008_09_08_124526.cpp">
+      <Filter>Model</Filter>
+    </ClCompile>
+    <ClCompile Include="..\Model\LeftEyeClosed_16x16_2008_10_23_185544.cpp">
+      <Filter>Model</Filter>
+    </ClCompile>
+    <ClCompile Include="..\Model\LeftEyeFront_16x16_2008_10_20_190938_4.cpp">
+      <Filter>Model</Filter>
+    </ClCompile>
+    <ClCompile Include="..\Model\MouthFront_16x14_2008_10_20_190419_4.cpp">
+      <Filter>Model</Filter>
+    </ClCompile>
+    <ClCompile Include="..\Model\MouthOpen_16x14_2008_10_23_185229.cpp">
+      <Filter>Model</Filter>
+    </ClCompile>
+    <ClCompile Include="..\Model\NoseFront_16x16_2008_10_17_134731_4.cpp">
+      <Filter>Model</Filter>
+    </ClCompile>
+    <ClCompile Include="..\Model\RightEyeClosed_16x16_2008_10_23_185544.cpp">
+      <Filter>Model</Filter>
+    </ClCompile>
+    <ClCompile Include="..\Model\RightEyeFront_16x16_2008_10_20_190953_4.cpp">
+      <Filter>Model</Filter>
+    </ClCompile>
+    <ClCompile Include="..\Model\Sad_26x26_2008_10_21_161703.cpp">
+      <Filter>Model</Filter>
+    </ClCompile>
+    <ClCompile Include="..\Model\Surprised_26x26_2008_09_11_175815.cpp">
+      <Filter>Model</Filter>
+    </ClCompile>
+    <ClCompile Include="..\Model\Tracking_36x36_2008_08_21_110315.cpp">
+      <Filter>Model</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\CreateFaceEngine.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\ContentToText.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\FacialAction.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="..\Lib\CreateFaceEngine.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\Lib\Image.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\Lib\Shore.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\ContentToText.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+  </ItemGroup>
+</Project>

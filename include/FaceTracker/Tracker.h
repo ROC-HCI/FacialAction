@@ -82,6 +82,7 @@ namespace FACETRACKER
        @return       -1 on failure, 0 otherwise.
     */
     int Track(cv::Mat im,std::vector<int> &wSize,
+		 cv::Rect R,
 	      const int    fpd    =-1,
 	      const int    nIter  = 10,
 	      const double clamp  = 3.0,
