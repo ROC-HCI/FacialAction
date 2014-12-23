@@ -1,6 +1,5 @@
 .cproject
 .project
-bin/
 Debug/
 Release/
 msvc/Debug/
@@ -8,6 +7,8 @@ msvc/Release/
 msvc/ipch/
 Temp/
 .settings/
+bin/face_tracker
+*.exe
 *.d
 *.o
 *.ilk
