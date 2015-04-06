@@ -278,35 +278,54 @@ void Draw(cv::Mat &image,cv::Mat &shape,cv::Mat &con,cv::Mat &tri,cv::Mat &visi)
 		c = CV_RGB(255,0,0); cv::circle(image,p1,2,c);
 	}return;
 }
-//=============================================================================
-int parse_cmd(int argc, const char** argv,
-	char* ftFile,char* conFile,char* triFile,
-	bool &fcheck,double &scale,int &fpd, bool &show, int &jobID, int &camidx)
-{
-	int i; fcheck = false; scale = 1; fpd = -1;
-	for(i = 1; i < argc; i++){
-		if((std::strcmp(argv[i],"-?") == 0) ||
-			(std::strcmp(argv[i],"--help") == 0)){
-				std::cout << "track_face:- Written by Jason Saragih 2010." << std::endl <<
+void showHelp(){
+	std::cout << "track_face:- Written by Jason Saragih 2010." << std::endl <<
 						"Added feature extraction routines by Md. Iftekhar Tanveer (go2chayan@gmail.com) 2014" << std::endl
-					<< "Performs automatic face tracking" << std::endl << std::endl
+					<< "Performs automatic face tracking" << std::endl
+					<< "This program extracts the important facial features" << std::endl
+					<< "It is possible to run this program to extract data from a webcam. For that, please make sure"
+					<< "-#=0 and you are not passing any video filename as input" << std::endl << std::endl
 					<< "#" << std::endl 
 					<< "# usage: ./face_tracker [options]" << std::endl
 					<< "#" << std::endl << std::endl
 					<< "Arguments:" << std::endl
-					<< "-m <string> -> Tracker model (default: ./model/face2.tracker)"
+					<< "-? or --help -> This message" << std::endl
+					<< "-m <string> -> Tracker model (default: ../model/face2.tracker)"
 					<< std::endl
-					<< "-c <string> -> Connectivity (default: ./model/face.con)"
+					<< "-c <string> -> Connectivity (default: ../model/face.con)"
 					<< std::endl
-					<< "-t <string> -> Triangulation (default: ./model/face.tri)"
+					<< "-t <string> -> Triangulation (default: ../model/face.tri)"
 					<< std::endl
 					<< "-s <double> -> Image scaling (default: 1)" << std::endl
-					<< "-job <index/int> -> specify the index of the input video file to work with" << std::endl
+					<< "-job <index/int> -> specify the index of the input video file to work with. If it is set to -2, the program"
+					<< " will try to automatically identify the job number by reading the env variable 'SLURM_PROCID' "
+					<< " If no job number is specified (default: -1) in that case the program will run the tracker on all the files specified in"
+					<< " -input argument. If a job number is specified, tracker will run only on the file having that specific index from the list of -input argument"<< std::endl
 					<< "-d <int>    -> Frames/detections (default: -1)" << std::endl
 					<< "--check     -> Check for failure" << std::endl
 					<< "--noshow    -> Hides the video frames and other feedbacks" <<std::endl
-					<< "-# <Camera_ID_Number> -> If only one camera, use 0. If want process from file, use -1 (default 0)" << std::endl
-					<< "-input <Filename> <Filename> ... <Filename> -> input video files (this must be the last argument)" << std::endl;
+					<< "-# <Camera_ID_Number> -> If only one camera, use 0. If want process from file, use -1 (default -1). "
+					<< " This is the main controller whether the data should be read from a webcam or from file."<< std::endl
+					<< "-rotate <0 or 1 or 2 or 3> -> Rotates the frame by 90*rotate degree" << std::endl
+					<< "-input <Filename> <Filename> ... <Filename> -> input video files (this must be the last argument)"
+					<< " You can not use wild card (*.mp4) in windows. Wild card is allowed in unix kind of systems only. "
+					<< " Because it expects a list of files after the input not just a wildcard. Unix automatically creates the list. Windows doesn't."<< std::endl<< std::endl
+					<< "TROURBLESHOOTING: If the program shuts down without doing anything, make sure the model files are in correct folder (i,e, ../model/)"<<std::endl;
+}
+//=============================================================================
+int parse_cmd(int argc, const char** argv,
+	char* ftFile,char* conFile,char* triFile,
+	bool &fcheck,double &scale,int &fpd, bool &show, int &jobID, int &camidx, int &rotate)
+{
+	int i; fcheck = false; scale = 1; fpd = -1;
+	if (argc==1){
+		showHelp();
+		return -1;
+	}
+	for(i = 1; i < argc; i++){
+		if((std::strcmp(argv[i],"-?") == 0) ||
+			(std::strcmp(argv[i],"--help") == 0)){
+				showHelp();
 				return -1;
 		}
 	}
@@ -334,11 +353,18 @@ int parse_cmd(int argc, const char** argv,
 	if(i >= argc)fpd = -1;
 	for(i = 1; i < argc; i++){
 		if(std::strcmp(argv[i],"-#") == 0){
-			if(argc > i+1)camidx = std::atoi(argv[i+1]); else camidx = 0;
+			if(argc > i+1)camidx = std::atoi(argv[i+1]); else camidx = -1;
 			break;
 		}
 	}
-	if(i >= argc)camidx = 0;
+	if(i >= argc)camidx = -1;
+	for(i = 1; i < argc; i++){
+		if(std::strcmp(argv[i],"-rotate") == 0){
+			if(argc > i+1)rotate = std::atoi(argv[i+1]); else rotate = 0;
+			break;
+		}
+	}
+	if(i >= argc)rotate = 0;
 	for(i = 1; i < argc; i++){
 			if(std::strcmp(argv[i],"-job") == 0){
 				if(argc > i+1)jobID = std::atoi(argv[i+1]); else jobID = -1;
@@ -497,6 +523,7 @@ void plotFeatureswithSlidingWindow(double FeatureLst[],int ArrLen,double eventFe
 				int(rows*float(j)/ArrLen)),CV_FONT_HERSHEY_SIMPLEX,0.5,CV_RGB(255,255,255));
 		}
 		cv::imshow("plot",PlotArea);
+		int c = cv::waitKey(5);
 
 }
 
@@ -508,40 +535,53 @@ int main(int argc, const char** argv){
 	int jobID = -1; bool inputFiles = false;
 	double Size=1.0;int lastResetCount = 0;	std::ofstream ofstm;
 	int camidx=0;	//Camera Index (If only one camera available, use 0)
-	if(parse_cmd(argc,argv,ftFile,conFile,triFile,fcheck,Size,fpd,show,jobID,camidx)<0)return 0;
-	// #### TODO: Include these variables into command line parser
 	int rotate = 0; // 0,1,2,3 only
-
+	if(parse_cmd(argc,argv,ftFile,conFile,triFile,fcheck,Size,fpd,show,jobID,camidx,rotate)<0)return 0;
+	// #### TODO: Include these variables into command line parser
+	
+	// Read jobid from enviorment variable if necessary
 	if (jobID ==-2)
 		jobID = std::atoi(std::getenv("SLURM_PROCID"));
 
+	// If camindex is negative, read all the files from argument
 	std::vector<std::string> fileList;
-	for (int argi = 1;argi<argc;argi++){
-		if(!inputFiles){
-			if (strcmp(argv[argi],"-input")!=0){
-				continue;
-			}else{
-				inputFiles = true;
-				continue;
+	if(camidx<0){
+		for (int argi = 1;argi<argc;argi++){
+			if(!inputFiles){
+				if (strcmp(argv[argi],"-input")!=0){
+					continue;
+				}else{
+					inputFiles = true;
+					continue;
+				}
 			}
+			fileList.push_back(argv[argi]);
 		}
-		fileList.push_back(argv[argi]);
 	}
-	if(camidx>=0)
-		fileList.push_back("");
+
+	// If camindex is negative but no file is provided that must be an error
+	if(camidx<0){
+		if (fileList.empty())
+			std::cout<<"camindex (-#) is negative but no file is provided. That must be an error. Use -? for Help."<<std::endl;
+	}
+	// if there is no file given and camidx>=0 that means the
+	// user wants to read the files from camera
+	if (fileList.empty() && camidx >= 0)fileList.push_back("");
+
+	// This loop is going to run over all the files in the argument
 	for (int idx = 0; idx<fileList.size();idx++){
 		std::string filename;
 		std::string outFileName;
 
+		// Camindex negative. Must read from file
 		if(camidx<0){
-			if (jobID<0){
-				filename=fileList[idx];
-				outFileName = std::string(fileList[idx]).append(".csv");
-			}else{
-				filename=fileList[jobID];
-				outFileName = std::string(fileList[jobID]).append(".csv");
+			if (jobID>=0){
+				// jobID is NOT negative. skip until jobID is identical to idx
+				if (jobID!=idx)continue;
 			}
-
+			// Either jobID is negative or  jobID==idx
+			filename=fileList[idx];
+			outFileName = std::string(fileList[idx]).append(".csv");
 
 			std::cout<<filename<<std::endl;
 			std::cout<<outFileName<<std::endl;
@@ -572,7 +612,7 @@ int main(int argc, const char** argv){
 
 			// Configuring capture object for extraction of data from video or webcam
 			cv::VideoCapture cap;
-			if (camidx!=-1)
+			if (camidx>=0)
 				cap.open(camidx);
 			else
 				cap.open(filename);
@@ -714,7 +754,7 @@ int main(int argc, const char** argv){
 						// Show output picture
 						cv::imshow("Face Tracker",frame);
 						// Wait for user input
-						int c = cvWaitKey(5);
+						int c = cv::waitKey(5);
 						if(c == 27 || char(c) == 'x')break;
 						else if(char(c) == 'd')model.FrameReset();
 						else if (char(c) == 'X'){ofstm.close();exit(0);}
@@ -729,6 +769,10 @@ int main(int argc, const char** argv){
 				std::cout<<"AvgFPS = 0"<<std::endl;
 			if (jobID>=0)
 				break;
+			int c = cv::waitKey(5);
+			if(c == 27 || char(c) == 'x')break;
+						else if(char(c) == 'd')model.FrameReset();
+						else if (char(c) == 'X'){ofstm.close();exit(0);}
 		}
 		exit(0);
 	}
