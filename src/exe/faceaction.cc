@@ -30,17 +30,17 @@ cv::Scalar colorSet[12] = {CV_RGB(255,0,0),CV_RGB(0,255,0),CV_RGB(0,0,255),
 	CV_RGB(255,50,0),CV_RGB(0,255,50),CV_RGB(50,0,255),
 	CV_RGB(255,50,155),CV_RGB(155,255,50),CV_RGB(50,155,255),};
 
-std::string FeatureSet[12] = {"Pitch","Yaw  ","Roll ",
+std::string FeatureSet[14] = {"Frame","Time-Stamp","Pitch","Yaw  ","Roll ",
 	"inBrL","otBrL","inBrR",
 	"otBrR","EyeOL","EyeOR",
 	"oLipH","iLipH","LipCDt"};
 
-void Writeblank(std::ofstream &ofstm){
-	for (int i=0;i<10;i++){
-
-		ofstm<<",";
-	}
-	ofstm<<std::endl;
+void Writeblank(int fnum,double startTime,std::ofstream &ofstm){
+	ofstm<<fnum<<",";
+	ofstm<<cv::getTickCount()/float(cv::getTickFrequency())-startTime<<",";
+	ofstm<<","<<","<<","<<","<<","<<","<<","<<","<<","<<","<<","<<","<<
+		","<<","<<","<<","<<","<<","<<","<<","<<","<<","<<","<<","<<
+		","<<","<<","<<","<<","<<","<<","<<","<<","<<","<<","<<","<<","<<","<<","<<"\n";
 }
 
 /* Find the distance of (x1,y1,z1) to a line formed by the
@@ -297,6 +297,8 @@ void showHelp(){
 					<< "-t <string> -> Triangulation (default: ../model/face.tri)"
 					<< std::endl
 					<< "-s <double> -> Image scaling (default: 1)" << std::endl
+					<< "-esen <int> -> Error tracker SENsitivity. Ideally should be within 10 to 25. But you may also try other ranges. Default 15" << std::endl
+					<< "-crop <int_x int_y int_width int_height> -> The four numbers specify a rectangular cropping region. The tracker will crop that region before running" << std::endl
 					<< "-job <index/int> -> specify the index of the input video file to work with. If it is set to -2, the program"
 					<< " will try to automatically identify the job number by reading the env variable 'SLURM_PROCID' "
 					<< " If no job number is specified (default: -1) in that case the program will run the tracker on all the files specified in"
@@ -315,7 +317,8 @@ void showHelp(){
 //=============================================================================
 int parse_cmd(int argc, const char** argv,
 	char* ftFile,char* conFile,char* triFile,
-	bool &fcheck,double &scale,int &fpd, bool &show, int &jobID, int &camidx, int &rotate)
+	bool &fcheck,double &scale,int &fpd, bool &show, int &jobID,
+	int &camidx, int &rotate, cv::Rect &cropR, int &esen)
 {
 	int i; fcheck = false; scale = 1; fpd = -1;
 	if (argc==1){
@@ -352,6 +355,13 @@ int parse_cmd(int argc, const char** argv,
 	}
 	if(i >= argc)fpd = -1;
 	for(i = 1; i < argc; i++){
+		if(std::strcmp(argv[i],"-esen") == 0){
+			if(argc > i+1)esen = std::atoi(argv[i+1]); else esen = 15;
+			break;
+		}
+	}
+	if(i >= argc)esen = 15;
+	for(i = 1; i < argc; i++){
 		if(std::strcmp(argv[i],"-#") == 0){
 			if(argc > i+1)camidx = std::atoi(argv[i+1]); else camidx = -1;
 			break;
@@ -365,6 +375,20 @@ int parse_cmd(int argc, const char** argv,
 		}
 	}
 	if(i >= argc)rotate = 0;
+	for(i = 1; i < argc; i++){
+		if(std::strcmp(argv[i],"-crop") == 0){
+			if(argc > i+4){
+				cropR = cv::Rect(std::atoi(argv[i+1]),
+				std::atoi(argv[i+2]),std::atoi(argv[i+3]),std::atoi(argv[i+4]));
+			}else if(argc <= i+4){
+				std::cout<<"Option -crop expects 4 numbers after it"<<std::endl;
+				return -1;
+			}else
+				cropR=cv::Rect(-1,-1,-1,-1);
+			break;
+		}
+	}
+	if(i >= argc)cropR=cv::Rect(-1,-1,-1,-1);
 	for(i = 1; i < argc; i++){
 			if(std::strcmp(argv[i],"-job") == 0){
 				if(argc > i+1)jobID = std::atoi(argv[i+1]); else jobID = -1;
@@ -519,12 +543,10 @@ void plotFeatureswithSlidingWindow(double FeatureLst[],int ArrLen,double eventFe
 		cv::putText(PlotArea,"Pitch,Yaw,Roll",cv::Point(cols/2,
 			int(rows*1.5/ArrLen)),CV_FONT_HERSHEY_SIMPLEX,0.5,CV_RGB(255,255,255));
 		for(int j=3;j<ArrLen;j++){
-			cv::putText(PlotArea,FeatureSet[j],cv::Point(cols/2,
+			cv::putText(PlotArea,FeatureSet[j+2],cv::Point(cols/2,
 				int(rows*float(j)/ArrLen)),CV_FONT_HERSHEY_SIMPLEX,0.5,CV_RGB(255,255,255));
 		}
 		cv::imshow("plot",PlotArea);
-		int c = cv::waitKey(5);
-
 }
 
 //=============================================================================
@@ -536,7 +558,11 @@ int main(int argc, const char** argv){
 	double Size=1.0;int lastResetCount = 0;	std::ofstream ofstm;
 	int camidx=0;	//Camera Index (If only one camera available, use 0)
 	int rotate = 0; // 0,1,2,3 only
-	if(parse_cmd(argc,argv,ftFile,conFile,triFile,fcheck,Size,fpd,show,jobID,camidx,rotate)<0)return 0;
+	int esen = 15;
+	cv::Rect cropR(-1,-1,-1,-1);
+	
+	if(parse_cmd(argc,argv,ftFile,conFile,triFile,fcheck,Size,fpd,show,jobID,camidx,rotate,cropR,esen)<0)return 0;
+	
 	// #### TODO: Include these variables into command line parser
 	
 	// Read jobid from enviorment variable if necessary
@@ -587,7 +613,6 @@ int main(int argc, const char** argv){
 			std::cout<<outFileName<<std::endl;
 		}
 
-		std::cout<<"startTime = "<<cv::getTickCount()/float(cv::getTickFrequency())<<std::endl;
 		// ############## Initialization #####################
 			cv::Mat filteredFeature;
 			cv::Mat eventFeature;
@@ -635,7 +660,7 @@ int main(int argc, const char** argv){
 
 			// Write header of the csv
 			ofstm.open(outFileName.c_str());
-			for (int feat_count = 0; feat_count < 12; feat_count++){
+			for (int feat_count = 0; feat_count < 14; feat_count++){
 				ofstm<<FeatureSet[feat_count]<<",";
 			}
 			for (int feat_count = 0; feat_count < 24; feat_count++){
@@ -645,9 +670,16 @@ int main(int argc, const char** argv){
 			// ############## End of Initialization ################
 			double FeaturesInArray[14] ={0.0};
 			double sumFPS = 0;
+			double startTime = cv::getTickCount()/float(cv::getTickFrequency());
+			std::cout<<"startTime = "<<startTime<<std::endl;
 			while(1){
-					//grab image
+					//grab image and crop it
 					cap>>frame;
+					if (cropR.x >= 0 && cropR.y >= 0 && cropR.width > 0 && cropR.height > 0){
+						//frame = frame(cv::Range(cropR.x,cropR.x+cropR.width),cv::Range(cropR.y,cropR.y+cropR.width)).clone();
+						frame = frame(cropR);
+					}
+
 
 					if(frame.data==NULL)break;
 					cv::resize(frame,frame,cv::Size(),Size,Size);
@@ -701,33 +733,39 @@ int main(int argc, const char** argv){
 								+eventFeature.at<double>(2)*eventFeature.at<double>(2)
 								+eventFeature.at<double>(12)*eventFeature.at<double>(12)
 								+eventFeature.at<double>(13)*eventFeature.at<double>(13));
-						if(errorTracker>10 && (fnum - lastResetCount) > 15){
+						if(errorTracker>esen && (fnum - lastResetCount) > 15){
 							if(show)std::cout<<"Unlikely movement detected. Resetting Tracker."<<std::endl;
 							failed = true;
 							model.FrameReset();
 							lastResetCount = fnum;
-							ofstm<<","<<","<<","<<","<<","<<","<<","<<","<<","<<","<<","<<","<<
-									","<<","<<","<<","<<","<<","<<","<<","<<","<<","<<","<<","<<
-									","<<","<<","<<","<<","<<","<<","<<","<<","<<","<<","<<","<<"\n";
+							Writeblank(fnum,startTime,ofstm);
 						}
 
-						// Write the data in file
+						// Write the processed facial features in file
+						ofstm<<fnum<<",";
+						ofstm<<cv::getTickCount()/float(cv::getTickFrequency())-startTime<<",";
 						for (int feat_count = 0; feat_count < 12; feat_count++){
 							ofstm<<filteredFeature.at<double>(0,feat_count)<<",";
 						}
+						// Write the dictionary coefficients in file
 						for (int feat_count = 0; feat_count < 24; feat_count++){
 							ofstm<<model._clm._plocal.at<double>(feat_count,0)<<",";
 						}
+						// Write the raw landmark points in file
+						for (int pointidx = 0; pointidx < 66; pointidx++){
+							ofstm<<trackedShape3d.at<double>(pointidx)<<","; // x value
+							ofstm<<trackedShape3d.at<double>(pointidx+66)<<","; // y value
+							ofstm<<trackedShape3d.at<double>(pointidx+132)<<","; // z value
+						}
 						ofstm<<"\n";
+						
 
 						if(show)Draw(frame,model._shape,con,tri,model._clm._visi[idx]);
 					}else{
 						if(show){cv::Mat R(frame,cvRect(0,0,150,50)); R = cv::Scalar(0,0,255);}
 						failed = true;
 						model.FrameReset();
-						ofstm<<","<<","<<","<<","<<","<<","<<","<<","<<","<<","<<","<<","<<
-								","<<","<<","<<","<<","<<","<<","<<","<<","<<","<<","<<","<<
-								","<<","<<","<<","<<","<<","<<","<<","<<","<<","<<","<<","<<"\n";
+						Writeblank(fnum,startTime,ofstm);
 					}
 
 					//count framerate
@@ -753,12 +791,13 @@ int main(int argc, const char** argv){
 							CV_FONT_HERSHEY_SIMPLEX,0.5,CV_RGB(0,0,0),2);
 						// Show output picture
 						cv::imshow("Face Tracker",frame);
-						// Wait for user input
-						int c = cv::waitKey(5);
-						if(c == 27 || char(c) == 'x')break;
-						else if(char(c) == 'd')model.FrameReset();
-						else if (char(c) == 'X'){ofstm.close();exit(0);}
 					}
+					// Wait for user input
+					int c = cv::waitKey(5);
+					if(c == 27 || char(c) == 'x')break;
+					else if(char(c) == 'd')model.FrameReset();
+					else if (char(c) == 'X'){ofstm.close();exit(0);}
+					
 			}
 			ofstm.close();
 			std::cout<<"endTime = "<<cv::getTickCount()/float(cv::getTickFrequency())<<std::endl;
@@ -769,7 +808,7 @@ int main(int argc, const char** argv){
 				std::cout<<"AvgFPS = 0"<<std::endl;
 			if (jobID>=0)
 				break;
-			int c = cv::waitKey(5);
+			int c = cv::waitKey(2);
 			if(c == 27 || char(c) == 'x')break;
 						else if(char(c) == 'd')model.FrameReset();
 						else if (char(c) == 'X'){ofstm.close();exit(0);}
