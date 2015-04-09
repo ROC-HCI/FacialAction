@@ -666,6 +666,11 @@ int main(int argc, const char** argv){
 			for (int feat_count = 0; feat_count < 24; feat_count++){
 				ofstm<<"dicCoeff_local"<<feat_count<<",";
 			}
+			for (int headc = 0; headc < 66; headc++){
+				ofstm<<"point_"<<headc<<"_x"<<",";
+				ofstm<<"point_"<<headc<<"_y"<<",";
+				ofstm<<"point_"<<headc<<"_z"<<",";
+			}
 			ofstm<<"\n";
 			// ############## End of Initialization ################
 			double FeaturesInArray[14] ={0.0};
