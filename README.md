@@ -22,7 +22,7 @@ To successfully compile and run this program with Visual Studio 10, make sure th
 2. Right click on a project name > Properties > Configuration Properties > Linker > Input. Check the *.lib files are representing the correct opencv version. For example opencv_core249d.lib represents OpenCV 2.4.9. The "d" after the version number represents configuration (d means debug, absence of d means release). Make sure that matches with your configuration.
 3. Make sure you compile the project "Tracker" before compiling "FacialAction"
 
-Note on bluehive-workable branch
+Terminal Mode
 ================================
 Code in this branch is mainly suitable for command line operation for feature extraction. The terminal commands are tested for accurate working. The output csv file contains more information. A few typically useful commands are as follows. However, please refer to the help (-? or --help) for more info.
 
