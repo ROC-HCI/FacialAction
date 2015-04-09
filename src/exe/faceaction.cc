@@ -290,13 +290,11 @@ void showHelp(){
 					<< "#" << std::endl << std::endl
 					<< "Arguments:" << std::endl
 					<< "-? or --help -> This message" << std::endl
-					<< "-m <string> -> Tracker model (default: ../model/face2.tracker)"
-					<< std::endl
-					<< "-c <string> -> Connectivity (default: ../model/face.con)"
-					<< std::endl
-					<< "-t <string> -> Triangulation (default: ../model/face.tri)"
-					<< std::endl
+					<< "-m <string> -> Tracker model (default: ../model/face2.tracker)"<< std::endl
+					<< "-c <string> -> Connectivity (default: ../model/face.con)"<< std::endl
+					<< "-t <string> -> Triangulation (default: ../model/face.tri)"<< std::endl
 					<< "-s <double> -> Image scaling (default: 1)" << std::endl
+					<< "-skip <int> -> Number of frames to be skipped before starting the tracking" << std::endl
 					<< "-esen <int> -> Error tracker SENsitivity. Ideally should be within 10 to 25. But you may also try other ranges. Default 15" << std::endl
 					<< "-crop <int_x int_y int_width int_height> -> The four numbers specify a rectangular cropping region. The tracker will crop that region before running" << std::endl
 					<< "-job <index/int> -> specify the index of the input video file to work with. If it is set to -2, the program"
@@ -318,7 +316,7 @@ void showHelp(){
 int parse_cmd(int argc, const char** argv,
 	char* ftFile,char* conFile,char* triFile,
 	bool &fcheck,double &scale,int &fpd, bool &show, int &jobID,
-	int &camidx, int &rotate, cv::Rect &cropR, int &esen)
+	int &camidx, int &rotate, cv::Rect &cropR, int &esen,int &skipFrames)
 {
 	int i; fcheck = false; scale = 1; fpd = -1;
 	if (argc==1){
@@ -361,6 +359,13 @@ int parse_cmd(int argc, const char** argv,
 		}
 	}
 	if(i >= argc)esen = 15;
+	for(i = 1; i < argc; i++){
+		if(std::strcmp(argv[i],"-skip") == 0){
+			if(argc > i+1)skipFrames = std::atoi(argv[i+1]); else skipFrames = 0;
+			break;
+		}
+	}
+	if(i >= argc)skipFrames = 0;
 	for(i = 1; i < argc; i++){
 		if(std::strcmp(argv[i],"-#") == 0){
 			if(argc > i+1)camidx = std::atoi(argv[i+1]); else camidx = -1;
@@ -559,9 +564,11 @@ int main(int argc, const char** argv){
 	int camidx=0;	//Camera Index (If only one camera available, use 0)
 	int rotate = 0; // 0,1,2,3 only
 	int esen = 15;
+	int skipFrames = 0;
 	cv::Rect cropR(-1,-1,-1,-1);
 	
-	if(parse_cmd(argc,argv,ftFile,conFile,triFile,fcheck,Size,fpd,show,jobID,camidx,rotate,cropR,esen)<0)return 0;
+	if(parse_cmd(argc,argv,ftFile,conFile,triFile,fcheck,Size,fpd,show,jobID,
+		camidx,rotate,cropR,esen,skipFrames)<0)return 0;
 	
 	// #### TODO: Include these variables into command line parser
 	
@@ -680,6 +687,7 @@ int main(int argc, const char** argv){
 			while(1){
 					//grab image and crop it
 					cap>>frame;
+					fnum += 1;
 					if (cropR.x >= 0 && cropR.y >= 0 && cropR.width > 0 && cropR.height > 0){
 						//frame = frame(cv::Range(cropR.x,cropR.x+cropR.width),cv::Range(cropR.y,cropR.y+cropR.width)).clone();
 						frame = frame(cropR);
@@ -707,6 +715,13 @@ int main(int argc, const char** argv){
 					//track this image
 					std::vector<int> wSize;
 					if(failed)wSize = wSize2; else wSize = wSize1;
+
+					// if the framenumber is less than threshold, skip the frame
+					if(fnum<skipFrames){
+						std::cout<<"skipping frame # "<<fnum<<std::endl;
+						continue;
+					}
+					
 
 					if(model.Track(gray,wSize,fpd,nIter,clamp,fTol,fcheck) == 0){
 						int idx = model._clm.GetViewIdx(); failed = false;
@@ -780,7 +795,6 @@ int main(int argc, const char** argv){
 						t0 = t1;
 					}
 					sumFPS = sumFPS + fps;
-					fnum += 1;
 					//draw framerate on display image
 					char frameNo[50] = {" "};
 					if(show){
