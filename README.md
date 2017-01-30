@@ -29,4 +29,5 @@ Terminal Mode
 Code in this branch is mainly suitable for command line operation for feature extraction. The terminal commands are tested for accurate working. The output csv file contains more information. A few typically useful commands are as follows. However, please refer to the help (-? or --help) for more info.
 
 FacialAction --noshow -esen 18 -crop 800 0 1000 600 -input video1.mp4 video2.mp4 video3.mp4
+
 FacialAction --noshow -esen 18 -job 0 -crop 800 0 1000 600 -input video1.mp4 video2.mp4 video3.mp4
