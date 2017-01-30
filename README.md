@@ -7,6 +7,8 @@ For Linux
 To compile, go in the main folder and use:
 make
 
+Note: In case you get an error like "cannot open output file bin/face_tracker: No such file or directory", just create an empty "bin" directory in the main folder.
+
 Needs OpenCV. Check out the instructions in the following page. Make sure you use correct versions for each package.
 http://www.ozbotz.org/opencv-installation/
 
